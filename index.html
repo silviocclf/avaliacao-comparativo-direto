@@ -6152,7 +6152,7 @@ async function exportPDF(rotina){
     });
   }
   function gap(n=4){y+=n;}
-  function opt(sel,lbl){line((sel?'(✓)':'( )')+' '+lbl,{indent:6,size:9.5});}
+  function opt(sel,lbl){line((sel?'[X]':'[ ]')+' '+lbl,{indent:6,size:9.5});}
   function secTitle(t){
     chkY(12);gap(3);
     doc.setFillColor(46,74,138);doc.rect(ML,y-4,TW,8,'F');
@@ -6203,59 +6203,42 @@ async function exportPDF(rotina){
   gap(6);
 
   // ── BLOCO 1: Escolha única ──
-  if(vv('q_radio')){
-    secTitle('1. ESCOLHA ÚNICA (DEMO)');
-    ['Opção A','Opção B','Opção C','Não se aplica'].forEach(o=>opt(vv('q_radio')===o,o));
-  }
+  secTitle('1. ESCOLHA UNICA');
+  ['Opcao A','Opcao B','Opcao C','Nao se aplica'].forEach(o=>opt(vv('q_radio')===o,o));
 
   // ── BLOCO 2: Múltipla ──
   const ck=chk('q_check');
-  if(ck.length){
-    secTitle('2. MÚLTIPLA ESCOLHA (DEMO)');
-    ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>opt(ck.includes(o),o));
-  }
+  secTitle('2. MULTIPLA ESCOLHA');
+  ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>opt(ck.includes(o),o));
 
   // ── BLOCO 3: Sim/Não ──
-  if(vv('q_simnao')){
-    secTitle('3. SIM / NÃO (DEMO)');
-    ['Sim','Não','Desconhecido'].forEach(o=>opt(vv('q_simnao')===o,o));
-    obsLine(vv('obs_simnao'));
-  }
+  secTitle('3. SIM / NAO');
+  ['Sim','Nao','Desconhecido'].forEach(o=>opt(vv('q_simnao')===o,o));
+  obsLine(vv('obs_simnao'));
 
   // ── BLOCO 4: Campos numéricos ──
+  secTitle('4. DADOS METRICOS');
   const qt=vv('q_area_terreno'),qc=vv('q_area_const'),qd=vv('q_dorm'),qv=vv('q_vagas');
-  if(qt||qc||qd||qv){
-    secTitle('4. DADOS MÉTRICOS (DEMO)');
-    const cw=TW/4;
-    tblRow([lbl('Área terreno',cw),lbl('Área construída',cw),lbl('Dormitórios',cw),lbl('Vagas',cw)]);
-    tblRow([dat(qt?qt+' m²':'—',cw),dat(qc?qc+' m²':'—',cw),dat(qd||'—',cw),dat(qv||'—',cw)]);
-  }
+  const cw=TW/4;
+  tblRow([lbl('Area terreno',cw),lbl('Area construida',cw),lbl('Dormitorios',cw),lbl('Vagas',cw)]);
+  tblRow([dat(qt?qt+' m2':'—',cw),dat(qc?qc+' m2':'—',cw),dat(qd||'—',cw),dat(qv||'—',cw)]);
 
   // ── BLOCO 5: Texto ──
-  if(vv('q_texto')){
-    secTitle('5. CAMPO DE TEXTO (DEMO)');
-    gap(1);line(vv('q_texto'),{size:10,indent:2});
-  }
+  secTitle('5. CAMPO DE TEXTO');
+  gap(1);line(vv('q_texto')||'(nao preenchido)',{size:10,indent:2,color:vv('q_texto')?[30,30,30]:[160,160,160]});
 
   // ── BLOCO 6: Comentário ──
-  if(vv('q_comentario')){
-    secTitle('6. PARECER / COMENTÁRIO (DEMO)');
-    gap(1);line(vv('q_comentario'),{size:10,indent:2});
-  }
+  secTitle('6. PARECER / COMENTARIO');
+  gap(1);line(vv('q_comentario')||'(nao preenchido)',{size:10,indent:2,color:vv('q_comentario')?[30,30,30]:[160,160,160]});
 
   // ── BLOCO 7: Valor ──
-  if(vv('q_valor')||vv('q_metod')){
-    secTitle('7. VALOR ESTIMADO');
-    if(vv('q_valor')){
-      gap(2);
-      doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(46,74,138);
-      doc.text('Valor: '+vv('q_valor'),ML+4,y);y+=7;
-    }
-    if(vv('q_metod')){
-      qTitle('Metodologia utilizada:');
-      ['Comparativo direto','Capitalização da renda','Custo de reprodução','Involutivo'].forEach(o=>opt(vv('q_metod')===o,o));
-    }
-  }
+  secTitle('7. VALOR ESTIMADO');
+  gap(2);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(46,74,138);
+  chkY(8);doc.text('Valor: '+(vv('q_valor')||'nao informado'),ML+4,y);y+=7;
+  doc.setTextColor(30,30,30);
+  qTitle('Metodologia:');
+  ['Comparativo direto','Capitalizacao da renda','Custo de reproducao','Involutivo'].forEach(o=>opt(vv('q_metod')===o,o));
 
   // ── FOTOS ──
   if(ft.length){
@@ -6363,58 +6346,48 @@ async function exportWord(){
   children.push(emptyP());
 
   // ── Bloco 1: Escolha única ──
-  if(vv('q_radio')){
-    children.push(secTitleP('1. Escolha Única'));
-    ['Opção A','Opção B','Opção C','Não se aplica'].forEach(o=>children.push(optP(vv('q_radio')===o,o)));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('1. Escolha Única'));
+  ['Opção A','Opção B','Opção C','Não se aplica'].forEach(o=>children.push(optP(vv('q_radio')===o,o)));
+  children.push(emptyP());
+
   // ── Bloco 2: Múltipla ──
   const ck=chk('q_check');
-  if(ck.length){
-    children.push(secTitleP('2. Múltipla Escolha'));
-    ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>children.push(optP(ck.includes(o),o)));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('2. Múltipla Escolha'));
+  ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>children.push(optP(ck.includes(o),o)));
+  children.push(emptyP());
+
   // ── Bloco 3: Sim/Não ──
-  if(vv('q_simnao')){
-    children.push(secTitleP('3. Sim / Não'));
-    ['Sim','Não','Desconhecido'].forEach(o=>children.push(optP(vv('q_simnao')===o,o)));
-    push(children,obsP(vv('obs_simnao')));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('3. Sim / Não'));
+  ['Sim','Não','Desconhecido'].forEach(o=>children.push(optP(vv('q_simnao')===o,o)));
+  push(children,obsP(vv('obs_simnao')));
+  children.push(emptyP());
+
   // ── Bloco 4: Numérico ──
   const qt=vv('q_area_terreno'),qc=vv('q_area_const'),qdd=vv('q_dorm'),qv=vv('q_vagas');
-  if(qt||qc||qdd||qv){
-    children.push(secTitleP('4. Dados Métricos'));
-    const CW4=TW/4;
-    children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[CW4,CW4,CW4,CW4],rows:[
-      new TableRow({children:[lblCell('Área terreno',CW4),lblCell('Área construída',CW4),lblCell('Dormitórios',CW4),lblCell('Vagas',CW4)]}),
-      new TableRow({children:[datCell(qt?qt+' m²':'—',CW4),datCell(qc?qc+' m²':'—',CW4),datCell(qdd||'—',CW4),datCell(qv||'—',CW4)]}),
-    ]}));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('4. Dados Métricos'));
+  const CW4=TW/4;
+  children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[CW4,CW4,CW4,CW4],rows:[
+    new TableRow({children:[lblCell('Área terreno',CW4),lblCell('Área construída',CW4),lblCell('Dormitórios',CW4),lblCell('Vagas',CW4)]}),
+    new TableRow({children:[datCell(qt?qt+' m²':'—',CW4),datCell(qc?qc+' m²':'—',CW4),datCell(qdd||'—',CW4),datCell(qv||'—',CW4)]}),
+  ]}));
+  children.push(emptyP());
+
   // ── Bloco 5: Texto ──
-  if(vv('q_texto')){
-    children.push(secTitleP('5. Campo de Texto'));
-    children.push(new Paragraph({children:[new TextRun({text:vv('q_texto'),size:20,font:'Arial'})]}));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('5. Campo de Texto'));
+  children.push(new Paragraph({children:[new TextRun({text:vv('q_texto')||'(não preenchido)',size:20,font:'Arial',color:vv('q_texto')?'1A1A1A':'AAAAAA',italics:!vv('q_texto')})]}));
+  children.push(emptyP());
+
   // ── Bloco 6: Parecer ──
-  if(vv('q_comentario')){
-    children.push(secTitleP('6. Parecer / Comentário'));
-    children.push(new Paragraph({spacing:{before:60,after:60},children:[new TextRun({text:vv('q_comentario'),size:20,font:'Arial'})]}));
-    children.push(emptyP());
-  }
+  children.push(secTitleP('6. Parecer / Comentário'));
+  children.push(new Paragraph({spacing:{before:60,after:60},children:[new TextRun({text:vv('q_comentario')||'(não preenchido)',size:20,font:'Arial',color:vv('q_comentario')?'1A1A1A':'AAAAAA',italics:!vv('q_comentario')})]}));
+  children.push(emptyP());
+
   // ── Bloco 7: Valor ──
-  if(vv('q_valor')||vv('q_metod')){
-    children.push(secTitleP('7. Valor Estimado'));
-    if(vv('q_valor'))children.push(new Paragraph({spacing:{before:80,after:80},children:[new TextRun({text:'Valor: '+vv('q_valor'),bold:true,size:26,font:'Arial',color:'2E4A8A'})]}));
-    if(vv('q_metod')){
-      children.push(new Paragraph({children:[new TextRun({text:'Metodologia:',bold:true,size:20,font:'Arial'})]}));
-      ['Comparativo direto','Capitalização da renda','Custo de reprodução','Involutivo'].forEach(o=>children.push(optP(vv('q_metod')===o,o)));
-    }
-    children.push(emptyP());
-  }
+  children.push(secTitleP('7. Valor Estimado'));
+  children.push(new Paragraph({spacing:{before:80,after:80},children:[new TextRun({text:'Valor: '+(vv('q_valor')||'não informado'),bold:!!vv('q_valor'),size:26,font:'Arial',color:'2E4A8A'})]}));
+  children.push(new Paragraph({children:[new TextRun({text:'Metodologia:',bold:true,size:20,font:'Arial'})]}));
+  ['Comparativo direto','Capitalização da renda','Custo de reprodução','Involutivo'].forEach(o=>children.push(optP(vv('q_metod')===o,o)));
+  children.push(emptyP());
 
   // ── Fotos ──
   if(ft.length){
@@ -6450,8 +6423,7 @@ async function exportWord(){
     }]
   });
   try{
-    const buf=await Packer.toBuffer(doc2);
-    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const blob=await Packer.toBlob(doc2);
     await dlBlobComPasta(blob,(osAtual.codigo||'relatorio')+'.docx');
     toast('Word gerado ✓');
   }catch(err){
