@@ -5338,6 +5338,7 @@ textarea{resize:vertical;min-height:60px;}
 .btn-exp{flex:1;padding:10px;border-radius:9px;font-weight:700;font-size:.82rem;cursor:pointer;border:none;}
 .btn-word{background:#1e6bb8;color:#fff;}
 .btn-exp.btn-word{background:#2b579a;color:#fff;}
+@keyframes del-slide-ok{0%{opacity:1}100%{opacity:0;transform:scale(1.05)}}
 @keyframes pulse-rec{0%,100%{box-shadow:0 2px 12px rgba(0,0,0,.25)}50%{box-shadow:0 0 0 6px rgba(192,57,43,.25),0 2px 12px rgba(0,0,0,.2)}}
 #btn-audio.gravando{background:var(--red)!important;color:#fff!important;animation:pulse-rec 1s infinite;}
 .btn-pdf{background:#c0392b;color:#fff;}
@@ -5393,6 +5394,33 @@ textarea{resize:vertical;min-height:60px;}
     <div id="lista-os"></div>
   </div>
 
+<!-- MODAL EXCLUIR OS -->
+<div id="modal-del" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:var(--bg2);border-radius:18px 18px 0 0;padding:1.2rem 1.1rem 2rem;width:100%;max-width:480px;box-shadow:0 -4px 32px rgba(0,0,0,.3)">
+    <div style="text-align:center;font-size:2rem;margin-bottom:.4rem">🗑</div>
+    <div style="text-align:center;font-size:1rem;font-weight:700;color:var(--txt);margin-bottom:.25rem">Excluir OS</div>
+    <div id="del-codigo-label" style="text-align:center;font-size:.82rem;color:var(--txt3);margin-bottom:1.2rem">—</div>
+
+    <!-- SLIDE (padrão) -->
+    <div id="del-slide-wrap" style="margin-bottom:1rem">
+      <div style="font-size:.72rem;color:var(--txt3);text-align:center;margin-bottom:.6rem">Deslize para confirmar a exclusão</div>
+      <div id="del-slide-track" style="position:relative;height:52px;background:rgba(192,57,43,.12);border:1.5px solid rgba(192,57,43,.3);border-radius:26px;overflow:hidden;user-select:none;touch-action:none">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;color:var(--red);letter-spacing:.05em;pointer-events:none">DESLIZE PARA EXCLUIR →</div>
+        <div id="del-slide-thumb" style="position:absolute;left:4px;top:4px;width:44px;height:44px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:background .2s">🗑</div>
+      </div>
+    </div>
+
+    <!-- BIOMETRIA/SENHA -->
+    <div id="del-biom-wrap" style="display:none;margin-bottom:1rem;text-align:center">
+      <div style="font-size:.8rem;color:var(--txt2);margin-bottom:.75rem">Autentique para confirmar a exclusão</div>
+      <button onclick="_delBiomAuth()" style="background:var(--red);color:#fff;border:none;padding:12px 32px;border-radius:12px;font-size:.9rem;font-weight:700;cursor:pointer;width:100%">🔐 Usar senha / biometria do aparelho</button>
+      <div id="del-biom-aviso" style="display:none;font-size:.68rem;color:var(--amber);margin-top:.5rem">Biometria não disponível neste dispositivo/navegador. Use Chrome/Edge.</div>
+    </div>
+
+    <button onclick="fecharModalDel()" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--txt);padding:11px;border-radius:12px;font-size:.88rem;cursor:pointer">Cancelar</button>
+  </div>
+</div>
+
 <div id="modal-config" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:flex-end;">
   <div class="modal" style="max-height:95vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div class="modal-title">⚙ Configurações</div>
@@ -5430,6 +5458,17 @@ textarea{resize:vertical;min-height:60px;}
         <span style="position:absolute;inset:0;background:var(--bd2);border-radius:12px;transition:.2s"></span>
         <span id="umamao-knob" style="position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s"></span>
       </label>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem .75rem;background:var(--bg3);border:1px solid var(--bd);border-radius:9px;margin-bottom:.875rem">
+      <div>
+        <div style="font-size:.82rem;font-weight:600">🗑 Proteção ao excluir OS</div>
+        <div style="font-size:.62rem;color:var(--txt3)" id="del-prot-desc">Slide de confirmação (estilo iOS)</div>
+      </div>
+      <div style="display:flex;gap:.4rem">
+        <button id="del-prot-slide" onclick="setDelProt('slide')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--bd2);font-size:.72rem;cursor:pointer;background:var(--p);color:#000">Slide</button>
+        <button id="del-prot-biom" onclick="setDelProt('biom')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--bd2);font-size:.72rem;cursor:pointer;background:var(--bg2);color:var(--txt)">Senha</button>
+      </div>
     </div>
 
     <div style="font-size:.72rem;font-weight:700;color:var(--txt2);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Fotos sugeridas por tipo de ativo</div>
@@ -5559,6 +5598,7 @@ textarea{resize:vertical;min-height:60px;}
     </div>
     <span id="gps-badge-form" class="gps-badge gps-wait">⊙ GPS…</span>
     <button class="hdr-btn ghost" onclick="salvar()">Salvar</button>
+    <button class="hdr-btn" onclick="confirmarExcluirOS(osAtual&&osAtual.id,osAtual&&osAtual.codigo)" style="background:none;border:none;color:var(--red);font-size:1.1rem;cursor:pointer;padding:4px 6px;" title="Excluir OS">🗑</button>
   </div>
 
   <div class="prog-wrap">
@@ -6651,6 +6691,7 @@ function abrirConfig(){
   var umk=document.getElementById('umamao-knob');if(umk)umk.style.left=um?'21px':'3px';
   renderConfigTipos();
   _atualizarLabelsPastas();
+  _atualizarBotoesDelProt();
   const mc=document.getElementById('modal-config');mc.style.display='flex';mc.style.alignItems='flex-end';
 }
 function fecharConfig(){ document.getElementById('modal-config').style.display='none'; }
@@ -6885,6 +6926,7 @@ function renderLista(lista){
     '<span style="color:var(--txt3);font-size:18px">›</span>'+
     '</div>'+
     '<button onclick="event.stopPropagation();copiarOS('+o.id+')" style="flex-shrink:0;background:none;border:none;color:var(--txt3);font-size:18px;padding:4px 6px;cursor:pointer" title="Copiar OS">⧉</button>'+
+    '<button onclick="event.stopPropagation();confirmarExcluirOS('+o.id+',\''+o.codigo+'\')" style="flex-shrink:0;background:none;border:none;color:var(--red);font-size:18px;padding:4px 6px;cursor:pointer" title="Excluir OS">🗑</button>'+
     '</div>'
   );}).join('');
 }
@@ -6900,6 +6942,137 @@ async function copiarOS(id){
   await carregarLista();
   toast('OS copiada ✓');
   abrirOS(novoId);
+}
+
+// ── EXCLUIR OS ──
+var _delPendId=null;
+var _delProt='slide'; // 'slide' | 'biom'
+
+function setDelProt(modo){
+  _delProt=modo;
+  cfg.delProt=modo;
+  saveConfigStorage();
+  _atualizarBotoesDelProt();
+  toast('Proteção: '+(modo==='biom'?'Senha/biometria':'Slide de confirmação'));
+}
+function _atualizarBotoesDelProt(){
+  var m=cfg.delProt||'slide';
+  _delProt=m;
+  var bs=document.getElementById('del-prot-slide');
+  var bb=document.getElementById('del-prot-biom');
+  var desc=document.getElementById('del-prot-desc');
+  if(bs)bs.style.background=m==='slide'?'var(--p)':'var(--bg2)';
+  if(bs)bs.style.color=m==='slide'?'#000':'var(--txt)';
+  if(bb)bb.style.background=m==='biom'?'var(--p)':'var(--bg2)';
+  if(bb)bb.style.color=m==='biom'?'#000':'var(--txt)';
+  if(desc)desc.textContent=m==='biom'?'Senha / biometria do aparelho':'Slide de confirmação (estilo iOS)';
+}
+
+function confirmarExcluirOS(id,codigo){
+  if(!id)return;
+  _delPendId=id;
+  var lbl=document.getElementById('del-codigo-label');
+  if(lbl)lbl.textContent=codigo||('OS #'+id);
+  // mostrar modo correto
+  var sw=document.getElementById('del-slide-wrap');
+  var bw=document.getElementById('del-biom-wrap');
+  if(_delProt==='biom'){
+    if(sw)sw.style.display='none';
+    if(bw)bw.style.display='block';
+  } else {
+    if(sw)sw.style.display='block';
+    if(bw)bw.style.display='none';
+    _initSlide();
+  }
+  var m=document.getElementById('modal-del');
+  m.style.display='flex';
+}
+function fecharModalDel(){
+  document.getElementById('modal-del').style.display='none';
+  _delPendId=null;
+}
+async function _executarExclusao(){
+  if(!_delPendId)return;
+  var id=_delPendId;
+  fecharModalDel();
+  // Se estiver dentro da OS, voltar para home primeiro
+  var sf=document.getElementById('screen-form');
+  if(sf&&sf.classList.contains('on')){voltarHome();}
+  await db.os.delete(id);
+  await carregarLista();
+  toast('OS excluída ✓');
+}
+
+// ── SLIDE ──
+function _initSlide(){
+  var track=document.getElementById('del-slide-track');
+  var thumb=document.getElementById('del-slide-thumb');
+  if(!track||!thumb)return;
+  thumb.style.left='4px';thumb.style.transition='';
+  var maxX=track.offsetWidth-thumb.offsetWidth-8;
+  var dragging=false,startX=0,curX=0;
+
+  function getX(e){return e.touches?e.touches[0].clientX:e.clientX;}
+  function onStart(e){dragging=true;startX=getX(e)-curX;e.preventDefault();}
+  function onMove(e){
+    if(!dragging)return;
+    var x=Math.max(0,Math.min(getX(e)-startX,maxX));
+    curX=x;thumb.style.left=(4+x)+'px';thumb.style.transition='none';
+    var pct=x/maxX;
+    track.style.background='rgba(192,57,43,'+(0.12+pct*0.4)+')';
+    if(pct>=0.92){thumb.style.background='#27ae60';thumb.textContent='✓';}
+    else{thumb.style.background='var(--red)';thumb.textContent='🗑';}
+  }
+  function onEnd(){
+    if(!dragging)return;dragging=false;
+    var pct=curX/maxX;
+    if(pct>=0.92){
+      thumb.style.transition='left .15s';thumb.style.left=(4+maxX)+'px';
+      setTimeout(_executarExclusao,200);
+    } else {
+      curX=0;thumb.style.transition='left .25s';thumb.style.left='4px';
+      track.style.background='rgba(192,57,43,.12)';
+      thumb.style.background='var(--red)';thumb.textContent='🗑';
+    }
+  }
+  // remover listeners antigos clonando
+  var t2=thumb.cloneNode(true);thumb.parentNode.replaceChild(t2,thumb);
+  t2.addEventListener('mousedown',onStart);
+  t2.addEventListener('touchstart',onStart,{passive:false});
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onEnd);
+  document.addEventListener('touchend',onEnd);
+}
+
+// ── BIOMETRIA ──
+async function _delBiomAuth(){
+  var aviso=document.getElementById('del-biom-aviso');
+  if(!window.PublicKeyCredential){
+    if(aviso)aviso.style.display='block';return;
+  }
+  try{
+    // WebAuthn: solicitar verificação de usuário (usa PIN/biometria do SO)
+    const challenge=new Uint8Array(32);crypto.getRandomValues(challenge);
+    await navigator.credentials.get({
+      publicKey:{
+        challenge,
+        timeout:60000,
+        userVerification:'required',
+        allowCredentials:[]  // qualquer credencial registrada no aparelho
+      }
+    });
+    _executarExclusao();
+  }catch(e){
+    if(e.name==='NotAllowedError'){toast('Autenticação cancelada');}
+    else if(e.name==='InvalidStateError'||e.name==='NotSupportedError'){
+      // Nenhuma credencial registrada — fallback: pedir confirmação simples
+      if(confirm('Biometria não configurada neste navegador.
+Confirmar exclusão?')){_executarExclusao();}
+    } else {
+      if(aviso)aviso.style.display='block';
+    }
+  }
 }
 
 // ── BADGE FOTOS ──
