@@ -7067,8 +7067,7 @@ async function _delBiomAuth(){
     if(e.name==='NotAllowedError'){toast('Autenticação cancelada');}
     else if(e.name==='InvalidStateError'||e.name==='NotSupportedError'){
       // Nenhuma credencial registrada — fallback: pedir confirmação simples
-      if(confirm('Biometria não configurada neste navegador.
-Confirmar exclusão?')){_executarExclusao();}
+      if(confirm('Biometria nao configurada neste navegador.\nConfirmar exclusao?')){_executarExclusao();}
     } else {
       if(aviso)aviso.style.display='block';
     }
