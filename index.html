@@ -5510,7 +5510,7 @@ textarea{resize:vertical;min-height:60px;}
         </div>
         <div>
           <label class="fl">Código OS *</label>
-          <input id="m-cod" placeholder="Ex: PL-APA-PCO1368" oninput="prevNome()">
+          <input id="m-cod" placeholder="Ex: AVI-CASA-001" oninput="prevNome()">
           <div id="m-prev" style="font-size:.65rem;color:var(--p);font-family:monospace;margin-top:3px;min-height:14px;"></div>
         </div>
         <div><label class="fl">Nome do Ativo</label><input id="m-ativo" placeholder="Ex: Amazonas 01"></div>
@@ -5993,7 +5993,7 @@ function aplicarMarca(dataUrl,meta,cb){
 let fotosObrig = [], fotosExtra = [];
 
 function getCatsAtual(){
-  const tipo = (osAtual && osAtual.tipo) || 'PCO';
+  const tipo = (osAtual && osAtual.tipo) || 'OUTRO';
   return (cfg.fotos_obrig[tipo] && cfg.fotos_obrig[tipo].length)
     ? cfg.fotos_obrig[tipo]
     : (CATS_PADRAO[tipo] || []);
@@ -6133,197 +6133,179 @@ async function exportPDF(rotina){
   await salvar();
   const d=osAtual.dados||{};
   const ft=getAllFotos();
-  const incAnexo1=(rotina==='completa'||rotina==='anexo1');
-  const incAnexo2=(rotina==='completa'||rotina==='anexo2');
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const ML=15,TW=180;let y=20;
-  function chk(n){const v=d[n];return Array.isArray(v)?v:(v?[v]:[]);}
+  const ML=14,TW=182;let y=20;
   function vv(n){return d[n]||'';}
-  function line(text,opts={}){
-    const fs=opts.size||10;doc.setFontSize(fs);doc.setFont('times',opts.bold?'bold':'normal');
-    doc.setTextColor(...(opts.color||[30,30,30]));
-    doc.splitTextToSize(String(text||''),TW).forEach(l=>{if(y>270){doc.addPage();y=20;}doc.text(l,ML+(opts.indent||0),y);y+=fs*0.38+1.8;});
-  }
-  function gap(n=4){y+=n;}
-  function optLine(sel,lbl){line((sel?'( x )':'(   )')+' '+lbl,{indent:5});}
-  function secT2(t){gap(4);line(t,{bold:true,size:11,color:[20,50,120]});gap(1);}
-  function qT2(t){gap(2);line(t,{bold:true});}
+  function chk(n){const v=d[n];return Array.isArray(v)?v:(v?[v]:[]);}
 
-  // ── Helpers de tabela PDF ──
-  const PW=180; // largura total da página (190 - 2*ML=15... usa 180)
-  function pdfTbl(rows){
-    // rows: [{cells:[{text,w,bold,bg,center}]}]
-    rows.forEach(r=>{
-      if(y+7>280){doc.addPage();y=10;}
-      let cx=ML;
-      r.cells.forEach(c=>{
-        const h=c.h||7;
-        doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
-        if(c.bg){const rgb=hexRgb(c.bg);doc.setFillColor(...rgb);doc.rect(cx,y,c.w,h,'FD');}
-        else doc.rect(cx,y,c.w,h);
-        const fs=c.size||9;
-        doc.setFontSize(fs);doc.setFont('helvetica',c.bold?'bold':'normal');
-        doc.setTextColor(...(c.fg||[30,30,30]));
-        const tx=c.center?cx+c.w/2:cx+1.5;
-        const align=c.center?'center':'left';
-        const lines=doc.splitTextToSize(String(c.text||''),c.w-3);
-        doc.text(lines[0]||'',tx,y+h/2+fs*0.18,{align});
-        cx+=c.w;
-      });
-      y+=r.cells[0].h||7;
+  // ── helpers ──
+  function newPage(){doc.addPage();y=18;}
+  function chkY(h){if(y+h>278)newPage();}
+  function line(txt,opts={}){
+    const fs=opts.size||10;
+    doc.setFontSize(fs);doc.setFont(opts.font||'helvetica',opts.bold?'bold':'normal');
+    doc.setTextColor(...(opts.color||[30,30,30]));
+    doc.splitTextToSize(String(txt||''),TW-(opts.indent||0)).forEach(l=>{
+      chkY(fs*0.4+2);
+      doc.text(l,ML+(opts.indent||0),y);y+=fs*0.38+2;
     });
   }
-  function hexRgb(h){const n=parseInt(h,16);return[n>>16,(n>>8)&255,n&255];}
+  function gap(n=4){y+=n;}
+  function opt(sel,lbl){line((sel?'(✓)':'( )')+' '+lbl,{indent:6,size:9.5});}
+  function secTitle(t){
+    chkY(12);gap(3);
+    doc.setFillColor(46,74,138);doc.rect(ML,y-4,TW,8,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text(t,ML+3,y+0.5);y+=8;gap(1);
+    doc.setTextColor(30,30,30);
+  }
+  function qTitle(t){gap(3);line(t,{bold:true,size:10,color:[20,50,120]});gap(0.5);}
+  function obsLine(t){if(t)line('Obs: '+t,{indent:6,size:9,color:[80,80,80]});}
 
-  // Título
-  y=10;
-  if(incAnexo2){
-  doc.setFillColor(68,114,196);doc.rect(0,0,210,15,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('ANEXO 2 – FORMULÁRIO DE AVALIAÇÃO PRELIMINAR',105,10,{align:'center'});
-  y=16;
-  // Banner formulário
-  pdfTbl([{cells:[{text:'FORMULÁRIO DE AVALIAÇÃO AMBIENTAL PRELIMINAR',w:PW,bold:true,bg:'D9D9D9',center:true,h:8}]}]);
+  function tblRow(cells){
+    // cells: [{text,w,bold,bg,fg,center,h}]
+    chkY(cells[0].h||7);
+    let cx=ML;
+    cells.forEach(c=>{
+      const h=c.h||7,fs=c.size||9;
+      doc.setDrawColor(180,190,210);doc.setLineWidth(0.25);
+      if(c.bg){const n=parseInt(c.bg,16);doc.setFillColor(n>>16,(n>>8)&255,n&255);doc.rect(cx,y,c.w,h,'FD');}
+      else{doc.setFillColor(255,255,255);doc.rect(cx,y,c.w,h,'FD');}
+      doc.setFontSize(fs);doc.setFont('helvetica',c.bold?'bold':'normal');
+      doc.setTextColor(...(c.fg||[30,30,30]));
+      const tx=c.center?cx+c.w/2:cx+2,al=c.center?'center':'left';
+      const ls=doc.splitTextToSize(String(c.text||''),c.w-3);
+      doc.text(ls[0]||'',tx,y+h/2+fs*0.18,{align:al});
+      cx+=c.w;
+    });
+    y+=cells[0].h||7;
+  }
+  function hdr(t,w){return{text:t,w,bold:true,bg:'2E4A8A',fg:[255,255,255],center:true};}
+  function lbl(t,w){return{text:t,w,bold:true,bg:'D9E2F3',fg:[30,30,30]};}
+  function dat(t,w){return{text:String(t||'—'),w};}
 
-  // Código / Data / Revisão
-  pdfTbl([
-    {cells:[{text:'CÓDIGO:',w:60,bold:true,bg:'BFBFBF'},{text:'DATA:',w:60,bold:true,bg:'BFBFBF'},{text:'REVISÃO:',w:60,bold:true,bg:'BFBFBF'}]},
-    {cells:[{text:osAtual.codigo,w:60},{text:osAtual.data||'',w:60},{text:'00',w:60}]},
-  ]);
+  // ══ CAPA ══
+  doc.setFillColor(46,74,138);doc.rect(0,0,210,28,'F');
+  doc.setFontSize(15);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RELATÓRIO DE AVALIAÇÃO IMOBILIÁRIA',105,13,{align:'center'});
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text(osAtual.codigo+' · '+(osAtual.ativo||'Imóvel')+'  ·  '+(osAtual.municipio||'')+' / '+(osAtual.uf||''),105,22,{align:'center'});
+  y=34;
 
-  // Dados do Ativo
-  pdfTbl([
-    {cells:[{text:'DADOS DO ATIVO:',w:PW,bold:true,bg:'BFBFBF',center:true}]},
-    {cells:[{text:'Nome do Ativo:',w:40,bold:true,bg:'D9D9D9'},{text:osAtual.ativo||'',w:140}]},
-    {cells:[{text:'Endereço:',w:40,bold:true,bg:'D9D9D9'},{text:osAtual.endereco||'',w:140}]},
-    {cells:[{text:'Bairro:',w:40,bold:true,bg:'D9D9D9'},{text:osAtual.bairro||'',w:85},{text:'CEP:',w:15,bold:true,bg:'D9D9D9'},{text:osAtual.cep||'',w:40}]},
-    {cells:[{text:'Município/UF:',w:40,bold:true,bg:'D9D9D9'},{text:(osAtual.municipio||'')+'/'+(osAtual.uf||''),w:140}]},
-  ]);
+  // ── Dados da OS ──
+  tblRow([hdr('DADOS DA ORDEM DE SERVIÇO',TW)]);
+  tblRow([lbl('Código OS',45),dat(osAtual.codigo,45),lbl('Data',30),dat(osAtual.data||'',62)]);
+  tblRow([lbl('Tipo de imóvel',45),dat(osAtual.tipo||'',45),lbl('Situação',30),dat(osAtual.finalizado?'Finalizado':'Em andamento',62)]);
+  tblRow([lbl('Imóvel / Ativo',45),dat(osAtual.ativo||'',137)]);
+  tblRow([lbl('Município / UF',45),dat((osAtual.municipio||'')+'/'+(osAtual.uf||''),45),lbl('Técnico',30),dat(osAtual.tecnico||'',62)]);
+  tblRow([lbl('Entrevistado',45),dat(osAtual.entrevistado||'',45),lbl('Função',30),dat(osAtual.funcao||'',62)]);
+  gap(6);
 
-  // Dados da Visita
-  pdfTbl([
-    {cells:[{text:'DADOS DA VISITA TÉCNICA:',w:PW,bold:true,bg:'BFBFBF',center:true}]},
-    {cells:[{text:'Colaborador Próximus:',w:45,bold:true,bg:'D9D9D9'},{text:osAtual.tecnico||'',w:135}]},
-    {cells:[{text:'Horário de início:',w:45,bold:true,bg:'D9D9D9'},{text:osAtual.horario||'',w:135}]},
-    {cells:[{text:'Entrevistado:',w:45,bold:true,bg:'D9D9D9'},{text:osAtual.entrevistado||'',w:70},{text:'Matrícula:',w:25,bold:true,bg:'D9D9D9'},{text:osAtual.matricula||'',w:40}]},
-    {cells:[{text:'Função:',w:45,bold:true,bg:'D9D9D9'},{text:osAtual.funcao||'',w:70},{text:'Tempo na função:',w:25,bold:true,bg:'D9D9D9',size:7},{text:osAtual.tempo||'',w:40}]},
-    {cells:[{text:'Data:',w:45,bold:true,bg:'D9D9D9'},{text:osAtual.data||'',w:135}]},
-  ]);
+  // ── BLOCO 1: Escolha única ──
+  if(vv('q_radio')){
+    secTitle('1. ESCOLHA ÚNICA (DEMO)');
+    ['Opção A','Opção B','Opção C','Não se aplica'].forEach(o=>opt(vv('q_radio')===o,o));
+  }
 
-  // Banner POÇOS
-  pdfTbl([{cells:[{text:'POÇOS',w:PW,bold:true,bg:'4472C4',center:true,fg:[255,255,255]}]}]);
-  gap(2);
+  // ── BLOCO 2: Múltipla ──
+  const ck=chk('q_check');
+  if(ck.length){
+    secTitle('2. MÚLTIPLA ESCOLHA (DEMO)');
+    ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>opt(ck.includes(o),o));
+  }
 
-  secT2('1. IDENTIFICAÇÃO DO POÇO E INTEGRIDADE');
-  qT2('1.1 Idade:');optLine(vv('q11')==='1-10','1–10 anos');optLine(vv('q11')==='10-20','10–20 anos');optLine(vv('q11')==='>20','> 20 anos');optLine(vv('q11')==='desc','Desconhecido');
-  qT2('1.2 Tipo:');['Tubular profundo','Tubular raso','Artesiano jorrante','Monitoramento','Drenante','Outro'].forEach(o=>optLine(vv('q12')===o,o));
-  qT2('1.3 Outorga:');['Sim','Não','Em tramitação','Desconhecido'].forEach(o=>optLine(vv('q13')===o,o));
-  line('1.4 Aquífero: '+(vv('q14')||'—')+'   1.5 Prof.total: '+(vv('q15')||'Desc')+'   1.6 Prof.útil: '+(vv('q16')||'Desc')+'   1.7 Diâm: '+(vv('q17')||'Desc'));
-  qT2('1.8 Cabeçote:');['Pedestal em concreto','Tampa com cadeado','Respiro com tela/curva U','Passa-cabos vedado','Acima da cota de inundação','Abrigo/casa de bombas','Cerca/perímetro de proteção'].forEach(o=>optLine(chk('q18').includes(o),o));
-  qT2('1.9 Selo sanitário:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q19')===o,o));
-  qT2('1.10 Anel anular:');['Areia','Brita','Desconhecido'].forEach(o=>optLine(vv('q110')===o,o));if(vv('obs110'))line('Obs: '+vv('obs110'),{indent:5});
-  qT2('1.11 Revestimento:');['Aço carbono','Aço inox','PVC geomecânico','PEAD','Outro','Desconhecido'].forEach(o=>optLine(vv('q111')===o,o));
-  qT2('1.12 Integridade:');['Adequada','Corrosão','Deformação','Trincas/Fissuras','Desconhecido'].forEach(o=>optLine(vv('q112')===o,o));
-  qT2('1.13 Conservação:');['Adequada','Inadequada'].forEach(o=>optLine(vv('q113')===o,o));if(vv('obs113'))line('Obs: '+vv('obs113'),{indent:5});
-  qT2('1.14 Drenagem:');['Impermeável com drenagem','Solo exposto','Canaletas/bacia'].forEach(o=>optLine(vv('q114')===o,o));
-  qT2('1.15 Erosão/encharcamento:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q115')===o,o));
+  // ── BLOCO 3: Sim/Não ──
+  if(vv('q_simnao')){
+    secTitle('3. SIM / NÃO (DEMO)');
+    ['Sim','Não','Desconhecido'].forEach(o=>opt(vv('q_simnao')===o,o));
+    obsLine(vv('obs_simnao'));
+  }
 
-  secT2('2. OPERAÇÃO, EQUIPAMENTOS E SEGURANÇA');
-  qT2('2.1 Bombeamento:');['Submersa','Centrífuga de superfície','Ejetora','Manual','Outro'].forEach(o=>optLine(vv('q21')===o,o));line('Potência: '+(vv('q21cv')||'Desc'),{indent:5});
-  qT2('2.2 Vibração/ruído:');['Sim','Não'].forEach(o=>optLine(vv('q22')===o,o));
-  qT2('2.3 Instrumentação:');['Hidrômetro','Manômetro','Medidor de nível','Válvula de retenção'].forEach(o=>optLine(chk('q23').includes(o),o));
-  const e23=chk('q23e');line(`Painel: ${(e23.includes('Sonoro')?'( x )':'(   )') } sonoro ; ${(e23.includes('Visual')?'( x )':'(   )')} visual ; ${(e23.includes('Aterramento/DR')?'( x )':'(   )')} aterramento/DR`,{indent:5});
-  qT2('2.4 Painel elétrico:');['Adequadas','Inadequadas'].forEach(o=>optLine(vv('q24')===o,o));
-  qT2('2.5 Insumos:');['Cloração/hipoclorito','Limpeza química','Lubrificantes/óleos','Não se aplica'].forEach(o=>optLine(chk('q25').includes(o),o));
-  qT2('2.6 Armazenamento:');['Área coberta com contenção','Área aberta sem contenção','N/A'].forEach(o=>optLine(vv('q26')===o,o));
-  qT2('2.7 Eventos:');['Extravasos/transbordos','Alagamento recorrente','Nenhum observado'].forEach(o=>optLine(chk('q27').includes(o),o));
-  qT2('2.8 Manutenção:');['Mensal','Trimestral','Semestral','Anual','Não realizada'].forEach(o=>optLine(vv('q28')===o,o));
+  // ── BLOCO 4: Campos numéricos ──
+  const qt=vv('q_area_terreno'),qc=vv('q_area_const'),qd=vv('q_dorm'),qv=vv('q_vagas');
+  if(qt||qc||qd||qv){
+    secTitle('4. DADOS MÉTRICOS (DEMO)');
+    const cw=TW/4;
+    tblRow([lbl('Área terreno',cw),lbl('Área construída',cw),lbl('Dormitórios',cw),lbl('Vagas',cw)]);
+    tblRow([dat(qt?qt+' m²':'—',cw),dat(qc?qc+' m²':'—',cw),dat(qd||'—',cw),dat(qv||'—',cw)]);
+  }
 
-  secT2('3. QUALIDADE E MONITORAMENTO DA ÁGUA');
-  line('NA estático: '+(vv('q31e')||'Desc')+'   Dinâmico: '+(vv('q31d')||'Desc')+'   Data: '+(vv('q31dt')||''));
-  line('Vazão: '+(vv('q32')||'Desc')+'   Operação diária: '+(vv('q33')||'Desc'));
-  qT2('3.4 Monitoramento:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q34')===o,o));
-  qT2('3.5 Parâmetros:');['Turbidez','pH','Cloro','Ferro/Mn','Coliformes','STD'].forEach(o=>optLine(chk('q35').includes(o),o));if(vv('q35out'))line('Outros: '+vv('q35out'),{indent:5});
-  qT2('Histórico NC:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q36')===o,o));if(vv('obs36'))line(vv('obs36'),{indent:5});
+  // ── BLOCO 5: Texto ──
+  if(vv('q_texto')){
+    secTitle('5. CAMPO DE TEXTO (DEMO)');
+    gap(1);line(vv('q_texto'),{size:10,indent:2});
+  }
 
-  secT2('4. CARACTERIZAÇÃO DO ENTORNO');
-  qT2('4.1 Distância:');['< 10 m','10–50 m','50–100 m','> 100 m'].forEach(o=>optLine(vv('q41')===o,o));
-  qT2('4.2 Empreendimentos:');['Área de vegetação natural','Zona residencial','Estabelecimento comercial','Complexo industrial','Instituição educacional','Outros'].forEach(o=>optLine(chk('q42').includes(o),o));
-  qT2('4.3 Corpos hídricos:');['Abastecimento domiciliar','Recreação','Dessedentação animal','Irrigação','Utilização desconhecida','Não há presença','Desconhecido'].forEach(o=>optLine(chk('q43').includes(o),o));
-  qT2('4.4 Poços:');['Abastecimento domiciliar','Recreação','Dessedentação animal','Irrigação','Utilização desconhecida','Não há presença','Desconhecido'].forEach(o=>optLine(chk('q44').includes(o),o));
-  qT2('4.5 Cacimba:');['Abastecimento domiciliar','Recreação','Dessedentação animal','Irrigação','Utilização desconhecida','Não há presença','Desconhecido'].forEach(o=>optLine(chk('q45').includes(o),o));
-  qT2('4.6 Chafariz:');['Abastecimento domiciliar','Recreação','Dessedentação animal','Irrigação','Utilização desconhecida','Não há presença','Desconhecido'].forEach(o=>optLine(chk('q46').includes(o),o));
-  qT2('4.7 Resíduos:');['Doméstico','Industrial','Construção civil','Classificação desconhecida','Não há'].forEach(o=>optLine(chk('q47').includes(o),o));if(vv('obs47'))line('Obs: '+vv('obs47'),{indent:5});
-  qT2('4.8 Modalidade:');['Deposição sobre a superfície','Enterrado','Combinação superficial e subterrânea','N/A'].forEach(o=>optLine(vv('q48')===o,o));
+  // ── BLOCO 6: Comentário ──
+  if(vv('q_comentario')){
+    secTitle('6. PARECER / COMENTÁRIO (DEMO)');
+    gap(1);line(vv('q_comentario'),{size:10,indent:2});
+  }
 
-  secT2('5. HISTÓRICO DE USO E OCUPAÇÃO');
-  qT2('5.1 Atividades:');['Vegetação natural','Uso residencial','Uso comercial','Uso industrial','Desconhecido'].forEach(o=>optLine(chk('q51').includes(o),o));
-  qT2('5.2 Explosão/incêndio:');['Sim – substâncias inflamáveis','Sim – curto-circuito/falha elétrica','Sim – acúmulo de gases','Sim – vandalismo/incêndio criminoso','Não','Desconhecido'].forEach(o=>optLine(vv('q52')===o,o));
-  qT2('5.3 Estudos anteriores:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q53')===o,o));
-  qT2('5.4 Notificações:');['Sim','Não','Desconhecido'].forEach(o=>optLine(vv('q54')===o,o));if(vv('obs54'))line('Obs: '+vv('obs54'),{indent:5});
+  // ── BLOCO 7: Valor ──
+  if(vv('q_valor')||vv('q_metod')){
+    secTitle('7. VALOR ESTIMADO');
+    if(vv('q_valor')){
+      gap(2);
+      doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(46,74,138);
+      doc.text('Valor: '+vv('q_valor'),ML+4,y);y+=7;
+    }
+    if(vv('q_metod')){
+      qTitle('Metodologia utilizada:');
+      ['Comparativo direto','Capitalização da renda','Custo de reprodução','Involutivo'].forEach(o=>opt(vv('q_metod')===o,o));
+    }
+  }
 
-  secT2('6. DIAGNÓSTICO PRELIMINAR');
-  qT2('6.1 Situação:');['Potencial de contaminação','Suspeita de contaminação','Contaminada'].forEach(o=>optLine(vv('q61')===o,o));
-  qT2('6.2 Fontes gerais:');['Vazamentos/exfiltrações em tubulações','Infiltrações em pisos/juntas','Manchas no solo/piso/parede','Estado de conservação comprometido','Armazenamento inadequado de resíduos','Armazenamento inadequado de insumos','Drenagem pluvial em área de processo','Gerador/transformador sem contenção','Oficina/manutenção (óleos, solventes)','Não há indícios'].forEach(o=>optLine(chk('q62g').includes(o),o));if(vv('obs62g'))line('Outros: '+vv('obs62g'),{indent:5});
-  qT2('6.2 Fontes específicas:');['Cabeçote danificado','Ausência/deficiência de selo sanitário','Revestimento/filtro comprometido','Extravaso em caixa de proteção','Inundação recorrente do poço','Cruzamento com rede de esgoto','Cloro sem contenção','Óleos/graxas no entorno','Retrolavagem no solo','Fauna/vetores no abrigo','Poços adjacentes interconectados'].forEach(o=>optLine(chk('q62e').includes(o),o));
-  qT2('6.3 Recomenda Fase 2:');['Sim','Não'].forEach(o=>optLine(vv('q63')===o,o));if(vv('q63txt')){gap(2);line(vv('q63txt'));}
-  } // fim incAnexo2
-
-  // FOTOS
-  if(incAnexo1&&ft.length){
-    doc.addPage();y=20;
-    doc.setFillColor(68,114,196);doc.rect(0,0,210,16,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(12);doc.setFont('helvetica','bold');
-    doc.text('REL. FOTOGRÁFICO – REGISTRO FOTOGRÁFICO',ML,11);
-    doc.setTextColor(30,30,30);y=24;
-    line(osAtual.codigo+' - '+(osAtual.ativo||''),{bold:true});gap(4);
-
-    // 2 colunas: paisagem ocupa largura total da coluna, retrato mantém proporção na mesma altura
-    const COL_W=PW/2, LEG_H=8;
-    const IMG_H=Math.round(COL_W*3/4);
-    const CELL_H=IMG_H+LEG_H;
-    const x1=ML, x2=ML+COL_W;
-    function drawCell(foto,idx,cx){
-      doc.setDrawColor(200,210,220);doc.setLineWidth(0.2);
-      doc.rect(cx,y,COL_W,CELL_H);
-      // Foto primeiro
-      doc.setFillColor(248,250,252);doc.rect(cx,y,COL_W,IMG_H,'F');
+  // ── FOTOS ──
+  if(ft.length){
+    newPage();
+    doc.setFillColor(46,74,138);doc.rect(0,0,210,16,'F');
+    doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('RELATÓRIO FOTOGRÁFICO',ML,11);
+    doc.setTextColor(30,30,30);y=22;
+    line(osAtual.codigo+' — '+(osAtual.ativo||''),{bold:true});gap(4);
+    const CW=TW/2,LH=8,IH=Math.round(CW*3/4),CH=IH+LH;
+    const x1=ML,x2=ML+CW;
+    function drawFoto(f,idx,cx){
+      chkY(CH+2);
+      doc.setDrawColor(180,195,220);doc.setLineWidth(0.2);
+      doc.rect(cx,y,CW,CH);
+      doc.setFillColor(245,248,252);doc.rect(cx,y,CW,IH,'F');
       try{
-        const imgProps=doc.getImageProperties(foto.url);
-        const natW=imgProps.width, natH=imgProps.height;
-        const isRetrato=natH>natW;
-        let dw,dh;
-        if(isRetrato){dh=IMG_H;dw=natW*(IMG_H/natH);}
-        else{dw=COL_W;dh=natH*(COL_W/natW);if(dh>IMG_H){dh=IMG_H;dw=natW*(IMG_H/natH);}}
-        const dx=cx+(COL_W-dw)/2, dy=y+(IMG_H-dh)/2;
-        doc.addImage(foto.url,'JPEG',dx,dy,dw,dh);
-      } catch(e){
-        doc.setFontSize(7);doc.setTextColor(150,150,150);
-        doc.text('Imagem indisponível',cx+COL_W/2,y+IMG_H/2,{align:'center'});
+        const p=doc.getImageProperties(f.url);
+        const rr=Math.min(CW/p.width,IH/p.height);
+        const dw=p.width*rr,dh=p.height*rr;
+        doc.addImage(f.url,'JPEG',cx+(CW-dw)/2,y+(IH-dh)/2,dw,dh);
+      }catch(e){
+        doc.setFontSize(7);doc.setTextColor(160,160,160);
+        doc.text('Imagem indisponível',cx+CW/2,y+IH/2,{align:'center'});
       }
-      // Legenda abaixo
-      doc.setFillColor(26,95,168);doc.rect(cx,y+IMG_H,COL_W,LEG_H,'F');
-      doc.line(cx,y+IMG_H,cx+COL_W,y+IMG_H);
-      doc.setFontSize(7.5);doc.setFont('times','bold');doc.setTextColor(255,255,255);
-      const leg='Foto '+(idx+1)+' — '+(foto.legenda||'sem legenda');
-      doc.text(leg,cx+COL_W/2,y+IMG_H+LEG_H/2+1.2,{align:'center',maxWidth:COL_W-3});
+      doc.setFillColor(26,95,168);doc.rect(cx,y+IH,CW,LH,'F');
+      doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+      doc.text('Foto '+(idx+1)+' — '+(f.legenda||'sem legenda'),cx+CW/2,y+IH+LH/2+1,{align:'center',maxWidth:CW-4});
     }
     for(let i=0;i<ft.length;i+=2){
-      if(y+CELL_H+2>280){doc.addPage();y=20;}
-      const a=ft[i],b=ft[i+1];
-      drawCell(a,i,x1);
-      if(b)drawCell(b,i+1,x2);
-      else{doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);doc.rect(x2,y,COL_W,CELL_H);}
-      y+=CELL_H;
+      chkY(CH+2);
+      drawFoto(ft[i],i,x1);
+      if(ft[i+1])drawFoto(ft[i+1],i+1,x2);
+      y+=CH+2;
     }
-  } // fim incAnexo1
+  }
 
-  // Salvar PDF com pastas configuradas
+  // ── Rodapé em todas as páginas ──
+  const total=doc.getNumberOfPages();
+  for(let p=1;p<=total;p++){
+    doc.setPage(p);
+    doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+    doc.text(osAtual.codigo+' · '+(osAtual.municipio||'')+'/'+( osAtual.uf||''),ML,291);
+    doc.text('Pág. '+p+'/'+total,210-ML,291,{align:'right'});
+  }
+
   try{
-    const pdfBlob=new Blob([doc.output('arraybuffer')],{type:'application/pdf'});
-    await dlBlobComPasta(pdfBlob,(osAtual.codigo||'relatorio')+'.pdf');
-  }catch(_e){ doc.save(osAtual.codigo+'.pdf'); }
+    const blob=new Blob([doc.output('arraybuffer')],{type:'application/pdf'});
+    await dlBlobComPasta(blob,(osAtual.codigo||'relatorio')+'.pdf');
+  }catch(_){doc.save((osAtual.codigo||'relatorio')+'.pdf');}
 }
 
 
@@ -6334,166 +6316,147 @@ async function exportWord(){
   const d=osAtual.dados||{};
   const ft=getAllFotos();
 
-  if(!window.docx){toast('Lib Word não carregada ainda, aguarde…');return;}
+  if(typeof window.docx==='undefined'){toast('Aguarde — carregando biblioteca Word…');return;}
   const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,ImageRun,
-    HeadingLevel,AlignmentType,WidthType,BorderStyle,ShadingType,VerticalAlign,
-    PageNumber,Header,Footer,TabStopType,TabStopPosition} = window.docx;
+    HeadingLevel,AlignmentType,WidthType,BorderStyle,ShadingType,PageNumber,
+    Header,Footer} = window.docx;
 
   function vv(n){return d[n]||'';}
   function chk(n){const v=d[n];return Array.isArray(v)?v:(v?[v]:[]);}
-  function checked(sel,lbl){return new Paragraph({children:[new TextRun({text:(sel?'☑':'☐')+' '+lbl,size:20,font:'Arial'})]});}
 
-  // Marca d'água como watermark via header (custom XML)
-  // docx-js não suporta watermark nativo, usamos background SVG via customXml
-  // Solução: adicionar no header um texto grande rotacionado via DrawingML
-  function watermarkPara(){
-    // Paragraph vazio que força o watermark via campo VML no header
-    return new Paragraph({children:[new TextRun('')]});
-  }
-
-  const TW=9026; // A4 content width DXA
-  const b={style:BorderStyle.SINGLE,size:4,color:'4472C4'};
-  const brs={top:b,bottom:b,left:b,right:b};
+  const TW=9026; // A4 1" margins DXA
+  const bHdr={style:BorderStyle.SINGLE,size:4,color:'2E4A8A'};
   const bLight={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
+  const brsHdr={top:bHdr,bottom:bHdr,left:bHdr,right:bHdr};
   const brsLight={top:bLight,bottom:bLight,left:bLight,right:bLight};
+  const CM={top:80,bottom:80,left:120,right:120};
 
-  function hdrCell(txt,w){return new TableCell({borders:brs,width:{size:w,type:WidthType.DXA},shading:{fill:'4472C4',type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:txt,bold:true,color:'FFFFFF',size:20,font:'Arial'})]})]});}
-  function dataCell(txt,w){return new TableCell({borders:brsLight,width:{size:w,type:WidthType.DXA},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:String(txt||''),size:20,font:'Arial'})]})]});}
-  function labelCell(txt,w){return new TableCell({borders:brsLight,width:{size:w,type:WidthType.DXA},shading:{fill:'D9E2F3',type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({children:[new TextRun({text:txt,bold:true,size:20,font:'Arial'})]})]});}
-
-  function secTitle(txt){return new Paragraph({heading:HeadingLevel.HEADING_1,children:[new TextRun({text:txt,font:'Arial',size:26,bold:true,color:'2E4A8A'})]});}
-  function qTitle(txt){return new Paragraph({children:[new TextRun({text:txt,bold:true,size:22,font:'Arial',color:'1A1A1A'})],spacing:{before:160,after:80}});}
-  function obsP(txt){if(!txt)return null;return new Paragraph({children:[new TextRun({text:'Obs: '+txt,size:20,font:'Arial',italics:true,color:'555555'})],spacing:{before:40}});}
+  function hdrCell(t,w,span){return new TableCell({columnSpan:span||1,borders:brsHdr,width:{size:w,type:WidthType.DXA},shading:{fill:'2E4A8A',type:ShadingType.CLEAR},margins:CM,children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:t,bold:true,color:'FFFFFF',size:20,font:'Arial'})]})]});}
+  function lblCell(t,w){return new TableCell({borders:brsLight,width:{size:w,type:WidthType.DXA},shading:{fill:'D9E2F3',type:ShadingType.CLEAR},margins:CM,children:[new Paragraph({children:[new TextRun({text:t,bold:true,size:19,font:'Arial'})]})]});}
+  function datCell(t,w){return new TableCell({borders:brsLight,width:{size:w,type:WidthType.DXA},margins:CM,children:[new Paragraph({children:[new TextRun({text:String(t||'—'),size:19,font:'Arial'})]})]});}
+  function secTitleP(t){return new Paragraph({spacing:{before:240,after:80},children:[new TextRun({text:t,bold:true,size:22,font:'Arial',color:'2E4A8A',allCaps:true})]});}
+  function optP(sel,lbl){return new Paragraph({spacing:{before:20,after:20},children:[new TextRun({text:(sel?'☑ ':'☐ ')+lbl,size:20,font:'Arial'})],indent:{left:360}});}
+  function obsP(t){if(!t)return null;return new Paragraph({spacing:{before:40,after:40},children:[new TextRun({text:'Obs: '+t,size:19,font:'Arial',italics:true,color:'555555'})],indent:{left:360}});}
+  function emptyP(){return new Paragraph({text:'',spacing:{after:120}});}
+  function push(arr,p){if(p)arr.push(p);}
 
   const children=[];
 
-  // ── Cabeçalho ──
+  // ── Tabela cabeçalho OS ──
   children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[TW],rows:[
-    new TableRow({children:[new TableCell({borders:brs,width:{size:TW,type:WidthType.DXA},shading:{fill:'2E4A8A',type:ShadingType.CLEAR},margins:{top:120,bottom:120,left:200,right:200},children:[
-      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'AVALIAÇÃO IMOBILIÁRIA – RELATÓRIO DE VISTORIA',bold:true,size:28,color:'FFFFFF',font:'Arial'})]}),
-      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:osAtual.codigo+' · '+(osAtual.ativo||''),size:22,color:'B8D0FF',font:'Arial'})]})
-    ]})]}),
+    new TableRow({children:[new TableCell({columnSpan:1,borders:brsHdr,width:{size:TW,type:WidthType.DXA},shading:{fill:'1A3A6B',type:ShadingType.CLEAR},margins:{top:160,bottom:160,left:200,right:200},children:[
+      new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'RELATÓRIO DE AVALIAÇÃO IMOBILIÁRIA',bold:true,size:30,color:'FFFFFF',font:'Arial'})]}),
+      new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:60},children:[new TextRun({text:osAtual.codigo+' · '+(osAtual.ativo||'')+'  ·  '+(osAtual.municipio||'')+'/'+(osAtual.uf||''),size:20,color:'B8CCF0',font:'Arial'})]})
+    ]})]})
   ]}));
+  children.push(emptyP());
 
-  // ── Dados da OS ──
-  children.push(new Paragraph({text:'',spacing:{after:120}}));
-  children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[2000,3013,2000,2013],rows:[
-    new TableRow({children:[hdrCell('DADOS DA OS',TW)].map((c,i)=>i===0?new TableCell({borders:brs,width:{size:TW,type:WidthType.DXA},columnSpan:4,shading:{fill:'4472C4',type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'DADOS DA OS',bold:true,color:'FFFFFF',size:20,font:'Arial'})]})]}):c)}),
-    new TableRow({children:[labelCell('Código:',2000),dataCell(osAtual.codigo,3013),labelCell('Data:',2000),dataCell(osAtual.data||'',2013)]}),
-    new TableRow({children:[labelCell('Imóvel:',2000),dataCell(osAtual.ativo||'',3013),labelCell('Tipo:',2000),dataCell(osAtual.tipo||'',2013)]}),
-    new TableRow({children:[labelCell('Município/UF:',2000),dataCell((osAtual.municipio||'')+'/'+(osAtual.uf||''),3013),labelCell('Técnico:',2000),dataCell(osAtual.tecnico||'',2013)]}),
+  const W1=2000,W2=2513,W3=1800,W4=2713; // soma=9026
+  children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[W1,W2,W3,W4],rows:[
+    new TableRow({children:[hdrCell('DADOS DA ORDEM DE SERVIÇO',TW,4)]}),
+    new TableRow({children:[lblCell('Código OS',W1),datCell(osAtual.codigo,W2),lblCell('Data',W3),datCell(osAtual.data||'',W4)]}),
+    new TableRow({children:[lblCell('Tipo',W1),datCell(osAtual.tipo||'',W2),lblCell('Situação',W3),datCell(osAtual.finalizado?'Finalizado':'Em andamento',W4)]}),
+    new TableRow({children:[lblCell('Imóvel / Ativo',W1),datCell(osAtual.ativo||'',W2+W3+W4)]}),
+    new TableRow({children:[lblCell('Município/UF',W1),datCell((osAtual.municipio||'')+'/'+(osAtual.uf||''),W2),lblCell('Técnico',W3),datCell(osAtual.tecnico||'',W4)]}),
+    new TableRow({children:[lblCell('Entrevistado',W1),datCell(osAtual.entrevistado||'',W2),lblCell('Função',W3),datCell(osAtual.funcao||'',W4)]}),
   ]}));
+  children.push(emptyP());
 
-  children.push(new Paragraph({text:'',spacing:{after:200}}));
-
-  // ── Seções do checklist ──
-  // Bloco radio
+  // ── Bloco 1: Escolha única ──
   if(vv('q_radio')){
-    children.push(secTitle('1. Escolha Única'));
-    children.push(checked(vv('q_radio')==='Opção A','Opção A'));
-    children.push(checked(vv('q_radio')==='Opção B','Opção B'));
-    children.push(checked(vv('q_radio')==='Opção C','Opção C'));
-    children.push(checked(vv('q_radio')==='Não se aplica','Não se aplica'));
-    children.push(new Paragraph({text:''}));
+    children.push(secTitleP('1. Escolha Única'));
+    ['Opção A','Opção B','Opção C','Não se aplica'].forEach(o=>children.push(optP(vv('q_radio')===o,o)));
+    children.push(emptyP());
   }
-  // Bloco checkbox
+  // ── Bloco 2: Múltipla ──
   const ck=chk('q_check');
   if(ck.length){
-    children.push(secTitle('2. Múltipla Escolha'));
-    ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>children.push(checked(ck.includes(o),o)));
-    children.push(new Paragraph({text:''}));
+    children.push(secTitleP('2. Múltipla Escolha'));
+    ['Item 1','Item 2','Item 3','Nenhum identificado'].forEach(o=>children.push(optP(ck.includes(o),o)));
+    children.push(emptyP());
   }
-  // Bloco sim/não
+  // ── Bloco 3: Sim/Não ──
   if(vv('q_simnao')){
-    children.push(secTitle('3. Sim / Não'));
-    ['Sim','Não','Desconhecido'].forEach(o=>children.push(checked(vv('q_simnao')===o,o)));
-    const op=obsP(vv('obs_simnao'));if(op)children.push(op);
-    children.push(new Paragraph({text:''}));
+    children.push(secTitleP('3. Sim / Não'));
+    ['Sim','Não','Desconhecido'].forEach(o=>children.push(optP(vv('q_simnao')===o,o)));
+    push(children,obsP(vv('obs_simnao')));
+    children.push(emptyP());
   }
-  // Bloco inline
-  const qt=vv('q_area_terreno'),qc=vv('q_area_const'),qd=vv('q_dorm'),qv=vv('q_vagas');
-  if(qt||qc||qd||qv){
-    children.push(secTitle('4. Campos Numéricos'));
-    children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[TW/4,TW/4,TW/4,TW/4],rows:[
-      new TableRow({children:[labelCell('Área terreno',TW/4),labelCell('Área construída',TW/4),labelCell('Dormitórios',TW/4),labelCell('Vagas',TW/4)]}),
-      new TableRow({children:[dataCell(qt?qt+' m²':'—',TW/4),dataCell(qc?qc+' m²':'—',TW/4),dataCell(qd||'—',TW/4),dataCell(qv||'—',TW/4)]}),
+  // ── Bloco 4: Numérico ──
+  const qt=vv('q_area_terreno'),qc=vv('q_area_const'),qdd=vv('q_dorm'),qv=vv('q_vagas');
+  if(qt||qc||qdd||qv){
+    children.push(secTitleP('4. Dados Métricos'));
+    const CW4=TW/4;
+    children.push(new Table({width:{size:TW,type:WidthType.DXA},columnWidths:[CW4,CW4,CW4,CW4],rows:[
+      new TableRow({children:[lblCell('Área terreno',CW4),lblCell('Área construída',CW4),lblCell('Dormitórios',CW4),lblCell('Vagas',CW4)]}),
+      new TableRow({children:[datCell(qt?qt+' m²':'—',CW4),datCell(qc?qc+' m²':'—',CW4),datCell(qdd||'—',CW4),datCell(qv||'—',CW4)]}),
     ]}));
-    children.push(new Paragraph({text:''}));
+    children.push(emptyP());
   }
-  // Texto simples
+  // ── Bloco 5: Texto ──
   if(vv('q_texto')){
-    children.push(secTitle('5. Texto'));
+    children.push(secTitleP('5. Campo de Texto'));
     children.push(new Paragraph({children:[new TextRun({text:vv('q_texto'),size:20,font:'Arial'})]}));
-    children.push(new Paragraph({text:''}));
+    children.push(emptyP());
   }
-  // Comentário
+  // ── Bloco 6: Parecer ──
   if(vv('q_comentario')){
-    children.push(secTitle('6. Parecer / Comentário'));
-    children.push(new Paragraph({children:[new TextRun({text:vv('q_comentario'),size:20,font:'Arial'})],spacing:{before:80,after:80}}));
-    children.push(new Paragraph({text:''}));
+    children.push(secTitleP('6. Parecer / Comentário'));
+    children.push(new Paragraph({spacing:{before:60,after:60},children:[new TextRun({text:vv('q_comentario'),size:20,font:'Arial'})]}));
+    children.push(emptyP());
   }
-  // Valor + metodologia
+  // ── Bloco 7: Valor ──
   if(vv('q_valor')||vv('q_metod')){
-    children.push(secTitle('7. Valor Estimado'));
-    if(vv('q_valor'))children.push(new Paragraph({children:[new TextRun({text:'Valor: '+vv('q_valor'),bold:true,size:24,font:'Arial',color:'2E4A8A'})]}));
-    if(vv('q_metod'))children.push(new Paragraph({children:[new TextRun({text:'Metodologia: '+vv('q_metod'),size:20,font:'Arial'})]}));
-    children.push(new Paragraph({text:''}));
+    children.push(secTitleP('7. Valor Estimado'));
+    if(vv('q_valor'))children.push(new Paragraph({spacing:{before:80,after:80},children:[new TextRun({text:'Valor: '+vv('q_valor'),bold:true,size:26,font:'Arial',color:'2E4A8A'})]}));
+    if(vv('q_metod')){
+      children.push(new Paragraph({children:[new TextRun({text:'Metodologia:',bold:true,size:20,font:'Arial'})]}));
+      ['Comparativo direto','Capitalização da renda','Custo de reprodução','Involutivo'].forEach(o=>children.push(optP(vv('q_metod')===o,o)));
+    }
+    children.push(emptyP());
   }
 
   // ── Fotos ──
   if(ft.length){
-    children.push(new Paragraph({pageBreakBefore:true,text:''}));
-    children.push(secTitle('Relatório Fotográfico'));
-    children.push(new Paragraph({children:[new TextRun({text:osAtual.codigo+' — '+(osAtual.ativo||''),size:20,font:'Arial',color:'555555'})],spacing:{after:160}}));
+    children.push(new Paragraph({pageBreakBefore:true,children:[new TextRun('')]}));
+    children.push(secTitleP('Relatório Fotográfico'));
+    children.push(new Paragraph({spacing:{after:160},children:[new TextRun({text:osAtual.codigo+' — '+(osAtual.ativo||''),size:19,font:'Arial',color:'555555'})]}));
     for(let i=0;i<ft.length;i++){
       try{
-        // Converter base64 para Uint8Array
         const b64=ft[i].url.split(',')[1];
-        const bin=atob(b64);
-        const arr=new Uint8Array(bin.length);
+        const bin=atob(b64);const arr=new Uint8Array(bin.length);
         for(let j=0;j<bin.length;j++)arr[j]=bin.charCodeAt(j);
-        children.push(new Paragraph({children:[
-          new ImageRun({data:arr,transformation:{width:400,height:300},type:'jpg'})
-        ],spacing:{after:40}}));
+        children.push(new Paragraph({spacing:{after:40},children:[new ImageRun({data:arr,transformation:{width:420,height:315},type:'jpg'})]}));
       }catch(e){
         children.push(new Paragraph({children:[new TextRun({text:'[Imagem indisponível]',size:18,color:'999999',font:'Arial'})]}));
       }
-      children.push(new Paragraph({children:[new TextRun({text:'Foto '+(i+1)+' — '+(ft[i].legenda||'sem legenda'),bold:true,size:18,font:'Arial',color:'2E4A8A'})],spacing:{after:200}}));
+      children.push(new Paragraph({spacing:{after:220},children:[new TextRun({text:'Foto '+(i+1)+' — '+(ft[i].legenda||'sem legenda'),bold:true,size:18,font:'Arial',color:'2E4A8A'})]}));
     }
   }
 
-  // ── Rodapé ──
   const footer=new Footer({children:[new Paragraph({alignment:AlignmentType.CENTER,children:[
-    new TextRun({text:osAtual.codigo+' · '+( osAtual.municipio||'')+'/'+(osAtual.uf||'')+' · ',size:16,color:'888888',font:'Arial'}),
+    new TextRun({text:osAtual.codigo+' · '+(osAtual.municipio||'')+'/'+(osAtual.uf||'')+' · Pág. ',size:16,color:'888888',font:'Arial'}),
     new TextRun({children:[PageNumber.CURRENT],size:16,color:'888888',font:'Arial'}),
-    new TextRun({text:' / ',size:16,color:'888888',font:'Arial'}),
+    new TextRun({text:'/',size:16,color:'888888',font:'Arial'}),
     new TextRun({children:[PageNumber.TOTAL_PAGES],size:16,color:'888888',font:'Arial'}),
   ]})]});
 
-  // ── Marca d'água via header ──
-  // Implementada como texto de fundo diagonal no header usando DrawingML
-  const wm_txt = osAtual.tecnico || 'AVALIAÇÃO';
-  const header = new Header({children:[new Paragraph({children:[new TextRun({text:''})]})]}); // header simples; WM via background
-
-  const doc=new Document({
+  const doc2=new Document({
     styles:{default:{document:{run:{font:'Arial',size:20}}}},
     sections:[{
-      properties:{page:{size:{width:11906,height:16838},margin:{top:1440,right:1440,bottom:1440,left:1440}}},
-      headers:{default:header},
+      properties:{page:{size:{width:11906,height:16838},margin:{top:1080,right:1080,bottom:1080,left:1080}}},
       footers:{default:footer},
       children
     }]
   });
-
   try{
-    const buf=await Packer.toBuffer(doc);
+    const buf=await Packer.toBuffer(doc2);
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-    const a=document.createElement('a');
     await dlBlobComPasta(blob,(osAtual.codigo||'relatorio')+'.docx');
-    toast('Word salvo ✓');
+    toast('Word gerado ✓');
   }catch(err){
-    console.error(err);
-    toast('Erro ao gerar Word: '+err.message);
+    console.error('Word error:',err);
+    toast('Erro Word: '+err.message);
   }
 }
 
@@ -6969,7 +6932,7 @@ async function copiarOS(id){
 
 // ── BADGE FOTOS ──
 function atualizarBadgeFotos(){
-  var tipo=(osAtual && osAtual.tipo)||'PCO';
+  var tipo=(osAtual && osAtual.tipo)||'OUTRO';
   var cats=cfg.fotos_obrig[tipo]||CATS_PADRAO[tipo]||[];
   var fDados=(osAtual && osAtual.fotosDados)||{};
   var obrigDados=fDados.obrig||[];
