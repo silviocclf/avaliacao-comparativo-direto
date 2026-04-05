@@ -5338,6 +5338,8 @@ textarea{resize:vertical;min-height:60px;}
 .btn-exp{flex:1;padding:10px;border-radius:9px;font-weight:700;font-size:.82rem;cursor:pointer;border:none;}
 .btn-word{background:#1e6bb8;color:#fff;}
 .btn-exp.btn-word{background:#2b579a;color:#fff;}
+@keyframes pulse-rec{0%,100%{box-shadow:0 2px 12px rgba(0,0,0,.25)}50%{box-shadow:0 0 0 6px rgba(192,57,43,.25),0 2px 12px rgba(0,0,0,.2)}}
+#btn-audio.gravando{background:var(--red)!important;color:#fff!important;animation:pulse-rec 1s infinite;}
 .btn-pdf{background:#c0392b;color:#fff;}
 
 /* GPS BADGE */
@@ -5444,6 +5446,33 @@ textarea{resize:vertical;min-height:60px;}
         </label>
       </div>
       <div style="font-size:.62rem;color:var(--txt3);margin-top:.4rem">Compartilhe o .json por WhatsApp, e-mail etc. para sincronizar entre dispositivos.</div>
+    </div>
+
+    <!-- PASTAS DE SAÍDA -->
+    <div style="border-top:1px solid var(--bd);padding-top:.875rem;margin:.875rem 0">
+      <div style="font-size:.72rem;font-weight:700;color:var(--txt2);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">📁 Pastas de saída</div>
+      <div style="font-size:.65rem;color:var(--txt3);margin-bottom:.6rem">Onde PDF e Word serão salvos. Configure as duas para ter backup automático.</div>
+
+      <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:9px;padding:.7rem;margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+          <span style="font-size:.78rem;font-weight:600">📂 Pasta local (primária)</span>
+          <button onclick="escolherPastaLocal()" style="background:var(--p);color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:.72rem;cursor:pointer">Escolher…</button>
+        </div>
+        <div id="pasta-local-label" style="font-size:.65rem;color:var(--txt3);font-family:monospace;word-break:break-all">Não configurada — arquivo vai para Downloads</div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:9px;padding:.7rem;margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+          <span style="font-size:.78rem;font-weight:600">☁ Pasta de nuvem (backup)</span>
+          <button onclick="escolherPastaCloud()" style="background:#0f9d58;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:.72rem;cursor:pointer">Escolher…</button>
+        </div>
+        <div id="pasta-cloud-label" style="font-size:.65rem;color:var(--txt3);font-family:monospace;word-break:break-all">Não configurada</div>
+        <div style="font-size:.6rem;color:var(--txt3);margin-top:.3rem">💡 Aponte para a pasta do Google Drive, OneDrive ou qualquer pasta sincronizada.</div>
+      </div>
+
+      <div id="pasta-api-aviso" style="display:none;font-size:.62rem;color:var(--amber);padding:.5rem .6rem;background:rgba(214,137,16,.08);border-radius:7px;border:1px solid rgba(214,137,16,.3)">
+        ⚠️ Este navegador não suporta seleção de pasta (File System Access API). Use Chrome/Edge no desktop para habilitar esta função. No celular, o arquivo sempre vai para Downloads.
+      </div>
     </div>
 
     <div class="modal-btns">
@@ -5641,6 +5670,10 @@ textarea{resize:vertical;min-height:60px;}
     <button class="btn-exp btn-pdf" onclick="exportPDF()">⬇ PDF</button>
     <button class="btn-exp btn-word" onclick="exportWord()">⬇ Word</button>
   </div>
+
+  <!-- BOTÃO FLUTUANTE DE ÁUDIO -->
+  <button id="btn-audio" onclick="toggleAudio()" title="Gravar lembrete de voz"
+    style="position:fixed;bottom:88px;right:16px;z-index:150;width:52px;height:52px;border-radius:50%;border:none;background:var(--bg2);box-shadow:0 2px 14px rgba(0,0,0,.28);font-size:1.35rem;cursor:pointer;display:none;align-items:center;justify-content:center">🎙</button>
 </div>
 
 <script>
@@ -5767,11 +5800,13 @@ async function abrirOS(id){
   document.getElementById('f-titulo').textContent=osAtual.codigo;
   document.getElementById('f-sub').textContent=`${osAtual.ativo||''} · ${osAtual.municipio||''}/${osAtual.uf||''}`;
   buildSteps();irParaStep(0);
+  _carregarAudioOS();
   document.getElementById('screen-home').classList.remove('on');
   document.getElementById('screen-form').classList.add('on');
+  var _ba=document.getElementById('btn-audio');if(_ba)_ba.style.display='flex';
 }
 
-function voltarHome(){salvar();document.getElementById('screen-form').classList.remove('on');document.getElementById('screen-home').classList.add('on');carregarLista();}
+function voltarHome(){salvar();document.getElementById('screen-form').classList.remove('on');document.getElementById('screen-home').classList.add('on');carregarLista();var _ba=document.getElementById('btn-audio');if(_ba)_ba.style.display='none';var _pa=document.getElementById('painel-audio');if(_pa)_pa.remove();}
 
 // ── STEPS ──
 // Mapeamento de seções por rotina
@@ -5872,8 +5907,8 @@ async function salvarFotosNaGaleria(){
 // ── SELEÇÃO VISUAL ──
 document.addEventListener('change',e=>{
   if(e.target.type==='radio'){
-    document.querySelectorAll(`input[name="${e.target.name}"]`).forEach(i=>i.closest('.opt') && el2.classList.remove('sel'));
-    e.target.closest('.opt') && el2.classList.add('sel');
+    document.querySelectorAll(`input[name="${e.target.name}"]`).forEach(i=>i.closest('.opt') && i.closest('.opt').classList.remove('sel'));
+    e.target.closest('.opt') && e.target.closest('.opt').classList.add('sel');
   }
   if(e.target.type==='checkbox') e.target.closest('.opt') && e.target.closest('.opt').classList.toggle('sel',e.target.checked);
   if(e.target.closest && e.target.closest('#screen-form')) agendarAutosave();
@@ -5897,10 +5932,10 @@ function coletarDados(){
 function preencherForm(dados){
   Object.entries(dados).forEach(([k,v])=>{
     if(Array.isArray(v)){
-      v.forEach(val=>{const el=document.querySelector(`input[name="${k}"][value="${val}"]`);if(el){el.checked=true;el.closest('.opt') && el2.classList.add('sel');}});
+      v.forEach(val=>{const el=document.querySelector(`input[name="${k}"][value="${val}"]`);if(el){el.checked=true;el.closest('.opt') && el.closest('.opt').classList.add('sel');}});
     } else {
       const r=document.querySelector(`input[name="${k}"][value="${v}"]`);
-      if(r){r.checked=true;r.closest('.opt') && el2.classList.add('sel');}
+      if(r){r.checked=true;r.closest('.opt') && r.closest('.opt').classList.add('sel');}
       const t=document.getElementById(k);if(t)t.value=v;
     }
   });
@@ -6284,7 +6319,11 @@ async function exportPDF(rotina){
     }
   } // fim incAnexo1
 
-  doc.save(osAtual.codigo+'.pdf');
+  // Salvar PDF com pastas configuradas
+  try{
+    const pdfBlob=new Blob([doc.output('arraybuffer')],{type:'application/pdf'});
+    await dlBlobComPasta(pdfBlob,(osAtual.codigo||'relatorio')+'.pdf');
+  }catch(_e){ doc.save(osAtual.codigo+'.pdf'); }
 }
 
 
@@ -6450,14 +6489,186 @@ async function exportWord(){
     const buf=await Packer.toBuffer(doc);
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=(osAtual.codigo||'relatorio')+'.docx';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-    toast('Word gerado ✓');
+    await dlBlobComPasta(blob,(osAtual.codigo||'relatorio')+'.docx');
+    toast('Word salvo ✓');
   }catch(err){
     console.error(err);
     toast('Erro ao gerar Word: '+err.message);
+  }
+}
+
+
+// ── ÁUDIO LEMBRETE ──
+let _mediaRec=null, _audioChunks=[], _audioBlob=null, _audioUrl=null;
+
+async function toggleAudio(){
+  const btn=document.getElementById('btn-audio');
+  if(_mediaRec && _mediaRec.state==='recording'){
+    _mediaRec.stop();
+    return;
+  }
+  if(_audioUrl){
+    // Já tem áudio: mostrar painel
+    _mostrarPainelAudio();
+    return;
+  }
+  // Iniciar gravação
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    _audioChunks=[];
+    _mediaRec=new MediaRecorder(stream);
+    _mediaRec.ondataavailable=e=>_audioChunks.push(e.data);
+    _mediaRec.onstop=()=>{
+      _audioBlob=new Blob(_audioChunks,{type:'audio/webm'});
+      _audioUrl=URL.createObjectURL(_audioBlob);
+      stream.getTracks().forEach(t=>t.stop());
+      _salvarAudioOS();
+      _mostrarPainelAudio();
+      btn.classList.remove('gravando');
+      btn.textContent='🔴';
+      btn.style.background='';
+      btn.title='Lembrete gravado — toque para ouvir/apagar';
+    };
+    _mediaRec.start();
+    btn.textContent='⏹';
+    btn.title='Parar gravação';
+    btn.style.color='';
+    btn.classList.add('gravando');
+    toast('🎙 Gravando… toque ⏹ para parar');
+  }catch(e){
+    toast('Microfone bloqueado ou indisponível');
+  }
+}
+
+function _salvarAudioOS(){
+  if(!osAtual||!_audioBlob)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    await db.os.update(osAtual.id,{audioLembrete:e.target.result,updatedAt:Date.now()});
+    osAtual=await db.os.get(osAtual.id);
+  };
+  reader.readAsDataURL(_audioBlob);
+}
+
+function _mostrarPainelAudio(){
+  let p=document.getElementById('painel-audio');
+  if(!p){
+    p=document.createElement('div');
+    p.id='painel-audio';
+    p.style.cssText='position:fixed;bottom:148px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:.75rem 1rem;z-index:200;width:92%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,.3)';
+    document.body.appendChild(p);
+  }
+  p.innerHTML=`
+    <div style="font-size:.78rem;font-weight:700;color:var(--txt);margin-bottom:.5rem">🎙 Lembrete de voz — ${osAtual?osAtual.codigo:''}</div>
+    <audio controls src="${_audioUrl}" style="width:100%;margin-bottom:.5rem;border-radius:8px"></audio>
+    <div style="display:flex;gap:.5rem">
+      <button onclick="this.closest('#painel-audio').remove()" style="flex:1;background:var(--bg3);border:1px solid var(--bd2);color:var(--txt);padding:8px;border-radius:8px;font-size:.78rem;cursor:pointer">Fechar</button>
+      <button onclick="_apagarAudio()" style="flex:1;background:var(--red);color:#fff;border:none;padding:8px;border-radius:8px;font-size:.78rem;cursor:pointer">🗑 Apagar</button>
+    </div>`;
+  p.style.display='block';
+}
+
+function _apagarAudio(){
+  _audioBlob=null;_audioUrl=null;_audioChunks=[];_mediaRec=null;
+  if(osAtual)db.os.update(osAtual.id,{audioLembrete:null,updatedAt:Date.now()});
+  const p=document.getElementById('painel-audio');if(p)p.remove();
+  const btn=document.getElementById('btn-audio');
+  if(btn){btn.classList.remove('gravando');btn.textContent='🎙';btn.style.color='';btn.style.background='';btn.title='Gravar lembrete de voz';}
+  toast('Áudio apagado');
+}
+
+function _carregarAudioOS(){
+  const btn=document.getElementById('btn-audio');
+  if(!btn)return;
+  if(osAtual && osAtual.audioLembrete){
+    _audioBlob=null;
+    _audioUrl=osAtual.audioLembrete;
+    btn.textContent='🔴';btn.style.color='var(--red)';
+    btn.title='Lembrete gravado — toque para ouvir/apagar';
+  } else {
+    _audioUrl=null;_audioBlob=null;
+    btn.textContent='🎙';btn.style.color='var(--txt2)';
+    btn.title='Gravar lembrete de voz';
+  }
+}
+
+// ── PASTAS DE SAÍDA ──
+var _pastaDirLocal=null, _pastaDirCloud=null;
+const PASTA_CFG_KEY='aap_pastas';
+
+function _loadPastas(){
+  try{
+    var s=localStorage.getItem(PASTA_CFG_KEY);
+    if(s){var p=JSON.parse(s);return p;}
+  }catch(e){}
+  return {localNome:null,cloudNome:null};
+}
+function _savePastas(){
+  var nomes={
+    localNome:_pastaDirLocal?_pastaDirLocal.name:null,
+    cloudNome:_pastaDirCloud?_pastaDirCloud.name:null
+  };
+  localStorage.setItem(PASTA_CFG_KEY,JSON.stringify(nomes));
+}
+function _atualizarLabelsPastas(){
+  var p=_loadPastas();
+  var el1=document.getElementById('pasta-local-label');
+  var el2=document.getElementById('pasta-cloud-label');
+  if(el1)el1.textContent=(_pastaDirLocal&&_pastaDirLocal.name)||p.localNome||'Não configurada — arquivo vai para Downloads';
+  if(el2)el2.textContent=(_pastaDirCloud&&_pastaDirCloud.name)||p.cloudNome||'Não configurada';
+}
+
+async function escolherPastaLocal(){
+  if(!window.showDirectoryPicker){
+    document.getElementById('pasta-api-aviso').style.display='block';
+    return;
+  }
+  try{
+    _pastaDirLocal=await window.showDirectoryPicker({mode:'readwrite'});
+    _savePastas();_atualizarLabelsPastas();
+    toast('Pasta local: '+_pastaDirLocal.name+' ✓');
+  }catch(e){ if(e.name!=='AbortError')toast('Erro: '+e.message); }
+}
+
+async function escolherPastaCloud(){
+  if(!window.showDirectoryPicker){
+    document.getElementById('pasta-api-aviso').style.display='block';
+    return;
+  }
+  try{
+    _pastaDirCloud=await window.showDirectoryPicker({mode:'readwrite'});
+    _savePastas();_atualizarLabelsPastas();
+    toast('Pasta nuvem: '+_pastaDirCloud.name+' ✓');
+  }catch(e){ if(e.name!=='AbortError')toast('Erro: '+e.message); }
+}
+
+// Salva blob em um FileSystemDirectoryHandle
+async function _salvarEmPasta(dir, nome, blob){
+  try{
+    const fh=await dir.getFileHandle(nome,{create:true});
+    const w=await fh.createWritable();
+    await w.write(blob);await w.close();
+    return true;
+  }catch(e){console.warn('Erro ao salvar em pasta:',e);return false;}
+}
+
+// Override dlBlob para salvar em pastas configuradas
+async function dlBlobComPasta(blob, nome){
+  let salvou=false;
+  if(_pastaDirLocal){
+    const ok=await _salvarEmPasta(_pastaDirLocal,nome,blob);
+    if(ok)salvou=true;
+  }
+  if(_pastaDirCloud){
+    const ok=await _salvarEmPasta(_pastaDirCloud,nome,blob);
+    if(ok){ toast(nome+' salvo em '+_pastaDirCloud.name+' ✓'); salvou=true; }
+  }
+  if(!salvou){
+    // Fallback: download padrão
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  } else if(_pastaDirLocal||_pastaDirCloud){
+    toast(nome+' salvo nas pastas ✓');
   }
 }
 
@@ -6504,6 +6715,7 @@ function abrirConfig(){
   var uck=document.getElementById('cfg-uma-mao');if(uck)uck.checked=um;
   var umk=document.getElementById('umamao-knob');if(umk)umk.style.left=um?'21px':'3px';
   renderConfigTipos();
+  _atualizarLabelsPastas();
   const mc=document.getElementById('modal-config');mc.style.display='flex';mc.style.alignItems='flex-end';
 }
 function fecharConfig(){ document.getElementById('modal-config').style.display='none'; }
@@ -6780,7 +6992,3 @@ carregarLista();
 </script>
 </body>
 </html>
-
-
-
-
